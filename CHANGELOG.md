@@ -2,6 +2,10 @@ Changelog
 =========
 
 
+### 0.13.2 (4/7/2015)
+
+- Modified templates and code to utilize react-router-render for react-router usage.
+
 ### 0.13.1 (16/5/2015)
 
 - Fixed a potential path issue in config files

@@ -1,9 +1,7 @@
 python-react
 ============
 
-[![Build Status](https://travis-ci.org/markfinger/python-react.svg?branch=master)](https://travis-ci.org/markfinger/python-react)
-
-Server-side rendering, client-side mounting, JSX translation, and component bundling.
+Server-side rendering, client-side mounting, JSX translation, and component bundling, modified to use react-router.
 
 ```python
 from react.render import render_component

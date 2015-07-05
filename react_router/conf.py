@@ -9,6 +9,6 @@ class Conf(conf.Conf):
     # loader run over it
     TRANSLATE_TEST = '/.jsx?$/'
 
-    JS_HOST_FUNCTION = 'react'
+    JS_HOST_FUNCTION = 'route'
 
 settings = Conf()
