@@ -8,13 +8,13 @@ from optional_django import six
 from js_host.function import Function
 from js_host.exceptions import FunctionError
 
-from react.bundle import bundle_component
 from react.render import RenderedComponent
 from react.exceptions import ComponentSourceFileNotFound
 from react.exceptions import ReactRenderingError
 
 from react_router.conf import settings
 from react_router.templates import MOUNT_JS
+from react_router.bundle import bundle_component
 
 class RouteRenderedComponent(RenderedComponent):
     def render_mount_js(self):
@@ -98,7 +98,17 @@ def render_route(
         raise six.reraise(ReactRenderingError, ReactRenderingError(*e.args), sys.exc_info()[2])
 
     if cbData['match']:
-        client_bundled_component = bundle_component(client_path, translate=translate)
+        if not os.path.isabs(client_path):
+            abs_client_path = staticfiles.find(client_path)
+            if not abs_client_path:
+                raise ComponentSourceFileNotFound(client_path)
+            client_path = abs_client_path
+
+        if not os.path.exists(client_path):
+            raise ComponentSourceFileNotFound(client_path)
+
+        client_bundled_component = bundle_component(client_path, translate=translate, client=True)
+        client_path = bundled_component.get_paths()[0]
         return RouteRenderedComponent(cbData['markup'], client_path, props, serialized_props, client_bundled_component, to_static_markup)
     else:
         if cbData['redirectInfo']:
