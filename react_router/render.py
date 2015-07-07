@@ -26,6 +26,29 @@ class RouteRenderedComponent(RenderedComponent):
             )
         )
 
+class RouteRedirect(object):
+    def __init__(self, pathname, query = None, state = None, *args, **kwargs):
+        self.path = pathname
+        self.query = query
+        if state and 'nextPathname' in state:
+            self.nextPath = state['nextPathname']
+        else:
+            self.nextPath = None
+        if self.path is None:
+            raise ReactRenderingError("No path returned for redirection.")
+        super(RouteRedirect, self).__init__(*args, **kwargs)
+
+    @property
+    def url(self):
+        if self.query:
+            return "%s?next=%s&%s" % (self.path, self.nextPath, self.query)
+        else:
+            return "%s?next=%s" % (self.path, self.nextPath)
+
+class RouteNotFound(object):
+    def __init__(self, *args, **kwargs):
+        super(RouteNotFound, self).__init__(*args, **kwargs)
+
 js_host_function = Function(settings.JS_HOST_FUNCTION)
 
 def render_route(
@@ -65,14 +88,20 @@ def render_route(
 
     try:
         location = request.path
-        markup = js_host_function.call(
+        cbData = json.loads(js_host_function.call(
             path=path,
             location=location,
             serializedProps=serialized_props,
             toStaticMarkup=to_static_markup
-        )
+        ))
     except FunctionError as e:
         raise six.reraise(ReactRenderingError, ReactRenderingError(*e.args), sys.exc_info()[2])
 
-    client_bundled_component = bundle_component(client_path, translate=translate)
-    return RouteRenderedComponent(markup, client_path, props, serialized_props, client_bundled_component, to_static_markup)
+    if cbData['match']:
+        client_bundled_component = bundle_component(client_path, translate=translate)
+        return RouteRenderedComponent(cbData['markup'], client_path, props, serialized_props, client_bundled_component, to_static_markup)
+    else:
+        if cbData['redirectInfo']:
+            return RouteRedirect(**cbData['redirectInfo'])
+        else:
+            return RouteNotFound()
