@@ -16,7 +16,25 @@ from react_router.conf import settings
 from react_router.templates import MOUNT_JS
 from react_router.bundle import bundle_component
 
+from webpack.compiler import WebpackBundle
+
 class RouteRenderedComponent(RenderedComponent):
+    def render_js(self):
+        client_asset = None
+        bundled_component = self.get_bundle()
+        assets = bundled_component.get_assets()
+        for asset in assets:
+            if asset['path'] == self.path_to_source:
+                client_asset = asset
+                break
+        if client_asset:
+            client_bundle = mark_safe(WebpackBundle.render_tag(client_asset['url']))
+        return mark_safe(
+            '\n{bundle}\n<script>\n{mount_js}\n</script>\n'.format(
+                bundle=client_bundle,
+                mount_js=self.render_mount_js(),
+                )
+            )
     def render_mount_js(self):
         return mark_safe(
             MOUNT_JS.format(
@@ -73,10 +91,29 @@ def render_route(
     if not os.path.exists(path):
         raise ComponentSourceFileNotFound(path)
 
+    if not os.path.isabs(client_path):
+        abs_client_path = staticfiles.find(client_path)
+        if not abs_client_path:
+            raise ComponentSourceFileNotFound(client_path)
+        client_path = abs_client_path
+
+    if not os.path.exists(client_path):
+        raise ComponentSourceFileNotFound(client_path)
+
     bundled_component = None
+    import re
+    client_re = re.compile(r"client-(?:\w*\d*).js",re.IGNORECASE)
+    server_re = re.compile(r"server-(?:\w*\d*).js",re.IGNORECASE)
     if bundle or translate:
-        bundled_component = bundle_component(path, translate=translate)
-        path = bundled_component.get_paths()[0]
+        bundled_component = bundle_component(path, client_path, translate=translate)
+        assets = bundled_component.get_assets()
+        for asset in assets:
+            m = client_re.search(asset['name'])
+            if m:
+                client_path = asset['path']
+            m = server_re.search(asset['name'])
+            if m:
+                path = asset['path']
 
     if json_encoder is None:
         json_encoder = JSONEncoder
@@ -98,18 +135,7 @@ def render_route(
         raise six.reraise(ReactRenderingError, ReactRenderingError(*e.args), sys.exc_info()[2])
 
     if cbData['match']:
-        if not os.path.isabs(client_path):
-            abs_client_path = staticfiles.find(client_path)
-            if not abs_client_path:
-                raise ComponentSourceFileNotFound(client_path)
-            client_path = abs_client_path
-
-        if not os.path.exists(client_path):
-            raise ComponentSourceFileNotFound(client_path)
-
-        client_bundled_component = bundle_component(client_path, translate=translate, client=True)
-        client_path = bundled_component.get_paths()[0]
-        return RouteRenderedComponent(cbData['markup'], client_path, props, serialized_props, client_bundled_component, to_static_markup)
+        return RouteRenderedComponent(cbData['markup'], client_path, props, serialized_props, bundled_component, to_static_markup)
     else:
         if cbData['redirectInfo']:
             return RouteRedirect(**cbData['redirectInfo'])

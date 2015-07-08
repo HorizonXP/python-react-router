@@ -9,7 +9,7 @@ from react.exceptions import ComponentSourceFileNotFound
 from react_router.conf import settings
 
 
-def bundle_component(path, translate=None, path_to_react=None, devtool=None, client=False):
+def bundle_component(path, client_path, translate=None, path_to_react=None, devtool=None, client=False):
     if not os.path.isabs(path):
         abs_path = staticfiles.find(path)
         if not abs_path:
@@ -19,18 +19,24 @@ def bundle_component(path, translate=None, path_to_react=None, devtool=None, cli
     if not os.path.exists(path):
         raise ComponentSourceFileNotFound(path)
 
-    config = generate_config_for_component(path, translate=translate, path_to_react=path_to_react, devtool=devtool, client=client)
+    if not os.path.isabs(client_path):
+        abs_client_path = staticfiles.find(client_path)
+        if not abs_client_path:
+            raise ComponentSourceFileNotFound(client_path)
+        client_path = abs_client_path
+
+    if not os.path.exists(client_path):
+        raise ComponentSourceFileNotFound(client_path)
+
+    config = generate_config_for_component(path, client_path, translate=translate, path_to_react=path_to_react, devtool=devtool)
 
     config_file = generate_config_file(config)
 
-    var = generate_var_from_path(path)
+    var = generate_var_from_path(client_path)
 
     path_to_config_file = get_path_to_config_file(config_file, prefix=var + '.')
 
-    if client:
-        return webpack(path_to_config_file)
-    else:
-        return webpack(path_to_config_file, False, False)
+    return webpack(path_to_config_file)
 
 
 def get_path_to_config_file(config_file, prefix=None):
@@ -47,12 +53,13 @@ def generate_config_file(config):
     )
 
 
-def generate_config_for_component(path, translate=None, path_to_react=None, devtool=None, client=False):
+def generate_config_for_component(path, client_path, translate=None, path_to_react=None, devtool=None):
     """
     Generates a webpack config object to bundle a component
     """
 
     var = generate_var_from_path(path)
+    client_var = generate_var_from_path(client_path)
 
     node_modules = os.path.join(js_host_settings.SOURCE_ROOT, 'node_modules')
 
@@ -61,23 +68,16 @@ def generate_config_for_component(path, translate=None, path_to_react=None, devt
 
     config = {
         'context': js_path_join(os.path.dirname(path)),
-        'entry': './{}'.format(os.path.basename(path)),
+        'entry': {
+            'server': './{}'.format(os.path.basename(path)),
+            'client': './{}'.format(os.path.basename(client_path)),
+        },
         'output': {
             'path': js_path_join(os.path.join('[bundle_dir]', 'components')),
-            'filename': var + '-[hash].js',
+            'filename': '[name]-[hash].js',
             'libraryTarget': 'umd',
-            'library': var
+            'library': '[name]',
         },
-        'externals': [{
-            'react': {
-                'commonjs2': js_path_join(path_to_react),
-                'root': 'React'
-            },
-            'react/addons': {
-                'commonjs2': js_path_join(path_to_react),
-                'root': 'React'
-            }
-        }]
     }
 
     if translate:
@@ -86,7 +86,10 @@ def generate_config_for_component(path, translate=None, path_to_react=None, devt
                 'loaders': [{
                     'test': JS(settings.TRANSLATE_TEST),
                     'exclude': JS('/node_modules/'),
-                    'loader': 'babel-loader'
+                    'loader': 'babel-loader',
+                    'query': {
+                        'stage': 0,
+                    }
                 }]
             },
             'resolveLoader': {
@@ -96,9 +99,6 @@ def generate_config_for_component(path, translate=None, path_to_react=None, devt
 
     if devtool:
         config['devtool'] = devtool
-
-    if client:
-        del config['externals']
 
     return config
 
