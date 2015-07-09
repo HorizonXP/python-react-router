@@ -19,7 +19,7 @@ from react_router.bundle import bundle_component
 from webpack.compiler import WebpackBundle
 
 class RouteRenderedComponent(RenderedComponent):
-    def render_js(self):
+    def get_client_asset(self):
         client_asset = None
         bundled_component = self.get_bundle()
         assets = bundled_component.get_assets()
@@ -27,6 +27,15 @@ class RouteRenderedComponent(RenderedComponent):
             if asset['path'] == self.path_to_source:
                 client_asset = asset
                 break
+        return client_asset
+    def get_var(self):
+        client_asset = self.get_client_asset()
+        if client_asset:
+            return 'client'
+        raise Exception("Client asset not found.")
+
+    def render_js(self):
+        client_asset = self.get_client_asset()
         if client_asset:
             client_bundle = mark_safe(WebpackBundle.render_tag(client_asset['url']))
         return mark_safe(
