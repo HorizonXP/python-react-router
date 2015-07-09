@@ -9,5 +9,5 @@ if (typeof {var} === 'undefined') throw new Error('Cannot find component variabl
   var container = document.getElementById(containerId);
   if (!container) throw new Error('Cannot find the container element `#{container_id}` for component `{var}`');
   React.render(element, container);
-}})({var}.React, {var}.routes, {var}.router, '{container_id}');
+}})({var}.ReactDOM, {var}.routes, {var}.router, '{container_id}');
 """
