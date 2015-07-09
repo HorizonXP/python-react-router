@@ -133,7 +133,10 @@ def render_route(
         serialized_props = None
 
     try:
-        location = request.path
+        location = {
+            'pathname': request.path,
+            'query': request.GET.dict()
+        }
         cbData = json.loads(js_host_function.call(
             path=path,
             location=location,
